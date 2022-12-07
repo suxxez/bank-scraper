@@ -1,13 +1,11 @@
 import logging
 import re
+from urllib.parse import urlparse
 
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
-from search_engine_parser.core.engines.yahoo import Search as YahooSearch
 from search_engine_parser.core.engines.google import Search as GoogleSearch
-
-from urllib.parse import urlparse
 
 import regex
 
@@ -16,8 +14,6 @@ def get_url_from_search(search_term):
     search_args = (search_term, 1)
     gsearch = GoogleSearch()
     gresults = gsearch.search(*search_args, url="google.de")
-    #ysearch = YahooSearch()
-    #yresults = ysearch.search(*search_args, url="yahoo.de")
 
     url = gresults[0]['links']
 
@@ -44,6 +40,7 @@ def find_url_by_key(base_url, site, keys):
                     logging.debug(f"Converted relative URL to {url}")
 
                 return url
+    raise ImpressumNotFoundException
 
 
 def get_email(site):
@@ -67,11 +64,19 @@ def get_banks():
     return pd.read_excel("Bankenliste Deutschland_no_QS.xlsx", header=2, usecols="B").squeeze("columns")
 
 
+class ImpressumNotFoundException(Exception):
+    def __init__(self, value):
+        self.value = value
+
+    def __str__(self):
+        return "Error: %s" % self.value
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
 
     banks = get_banks()
-    banks_df = pd.DataFrame(columns = ['name','url','email', 'street', 'city'])
+    banks_df = pd.DataFrame(columns=['name', 'url', 'email', 'street', 'city'])
 
     for index, bank in enumerate(banks):
         logging.info(f"Searching for {bank}")
@@ -80,14 +85,14 @@ if __name__ == "__main__":
         homepage = get_website(base_url)
         impressum_url = find_url_by_key(base_url, homepage, keys=["Impressum", "Imprint"])
 
-        if impressum_url is None:
-            banks_df.loc[index] = [bank, base_url, "", "", ""]
-        else:
+        try:
             impressum = get_website(impressum_url)
             email = get_email(impressum)
             street, city = get_address(impressum)
 
             banks_df.loc[index] = [bank, base_url, email, street, city]
+        except ImpressumNotFoundException as e:
+            banks_df.loc[index] = [bank, base_url, "", "", ""]
 
         if index == 1:
             break
