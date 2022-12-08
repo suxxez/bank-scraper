@@ -1,5 +1,6 @@
 import logging
 import re
+import time
 from urllib.parse import urlparse
 
 import pandas as pd
@@ -17,6 +18,7 @@ def get_url_from_search(search_term, engine="Yahoo"):
     results = None
 
     try:
+        logging.info(f"Searching for {bank}")
         if engine == "Google":
             gsearch = GoogleSearch()
             results = gsearch.search(*search_args, url="google.com")
@@ -26,7 +28,7 @@ def get_url_from_search(search_term, engine="Yahoo"):
     except NoResultsOrTrafficError:
         raise_not_found_exception(f"{search_term} not found on {engine}")
 
-    url = results[0]['links']
+    url = results[0]["links"]
 
     logging.info(f"Found URL {url}")
     return url
@@ -39,9 +41,9 @@ def get_website(url):
 
 
 def find_url_by_key(base_url, site, key):
-    for link in site.find_all('a'):
+    for link in site.find_all("a"):
         if key in link.text:
-            url = link.get('href')
+            url = link.get("href")
 
             logging.info(f"Found site for {key} at {url}")
 
@@ -74,8 +76,9 @@ def get_address(site):
 
 
 def get_banks():
-    return pd.read_excel("Bankenliste Deutschland_no_QS.xlsx", header=2, usecols="B", engine='openpyxl').squeeze(
-        "columns")
+    return pd.read_excel(
+        "Bankenliste Deutschland_no_QS.xlsx", header=2, usecols="B", engine="openpyxl"
+    ).squeeze("columns")
 
 
 class NotFoundException(Exception):
@@ -88,19 +91,25 @@ def raise_not_found_exception(error_msg):
 
 
 def switch_vpn():
-    logging.info("switching vpn")
+    logging.debug("switching vpn")
 
 
-if __name__ == "__main__":
+def log_progress(current, total, start_time):
+    logging.info(f"-------- PROGRESS: {current}/{total} --------")
+    logging.info(f"-------- TIME ELAPSED: {time.time() - start_time}s --------")
+
+
+def main():
     logging.basicConfig(level=logging.INFO)
 
     banks = get_banks()
-    banks_df = pd.DataFrame(columns=['name', 'url', 'email', 'street', 'city'])
+    banks_df = pd.DataFrame(columns=["name", "url", "email", "street", "city"])
+
+    start_time = time.time()
 
     for index, bank in enumerate(banks):
-        logging.info(f"Searching for {bank}")
-
-        if index > 0 and index % 8 == 0:
+        if index % 8 == 0:
+            log_progress(index, banks.size, start_time)
             switch_vpn()
 
         try:
@@ -124,3 +133,8 @@ if __name__ == "__main__":
             break
 
     banks_df.to_excel("banks.xlsx")
+    logging.info("DONE - saved entries to excel")
+
+
+if __name__ == "__main__":
+    main()
