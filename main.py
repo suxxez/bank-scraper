@@ -13,25 +13,29 @@ from search_engine_parser.core.exceptions import NoResultsOrTrafficError
 import regex
 
 
-def get_url_from_search(search_term, engine="Yahoo"):
+def get_url_from_search(search_term):
+    logging.info(f"Searching for {search_term}")
+
     search_args = (search_term, 1)
-    results = None
-
-    try:
-        logging.info(f"Searching for {bank}")
-        if engine == "Google":
-            gsearch = GoogleSearch()
-            results = gsearch.search(*search_args, url="google.com")
-        elif engine == "Yahoo":
-            ysearch = YahooSearch()
-            results = ysearch.search(*search_args)
-    except NoResultsOrTrafficError:
-        raise_not_found_exception(f"{search_term} not found on {engine}")
-
+    results = perform_search(search_args)
     url = results[0]["links"]
 
     logging.info(f"Found URL {url}")
     return url
+
+
+def perform_search(search_args):
+    try:
+        g_search = GoogleSearch()
+        return g_search.search(*search_args, url="google.de")
+    except NoResultsOrTrafficError:
+        pass
+
+    try:
+        y_search = YahooSearch()
+        return y_search.search(*search_args, url="yahoo.de")
+    except NoResultsOrTrafficError:
+        raise_not_found_exception(f"{search_args} not found on Google nor Yahoo")
 
 
 def get_website(url):
