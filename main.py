@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 from search_engine_parser.core.engines.yahoo import Search as YahooSearch
 from search_engine_parser.core.engines.google import Search as GoogleSearch
 from search_engine_parser.core.exceptions import NoResultsOrTrafficError
+from nordvpn_switcher import initialize_VPN, rotate_VPN, terminate_VPN
 
 import regex
 
@@ -94,8 +95,9 @@ def raise_not_found_exception(error_msg):
     raise NotFoundException(error_msg)
 
 
-def switch_vpn():
+def switch_vpn(settings):
     logging.debug("switching vpn")
+    rotate_VPN(settings, google_check=1)
 
 
 def log_progress(current, total, start_time):
@@ -106,6 +108,8 @@ def log_progress(current, total, start_time):
 def main():
     logging.basicConfig(level=logging.INFO)
 
+    settings = initialize_VPN(save=1, area_input=['germany'])
+
     banks = get_banks()
     banks_df = pd.DataFrame(columns=["name", "url", "email", "street", "city"])
 
@@ -114,10 +118,10 @@ def main():
     for index, bank in enumerate(banks):
         if index % 8 == 0:
             log_progress(index, banks.size, start_time)
-            switch_vpn()
+            switch_vpn(settings)
 
         try:
-            base_url = get_url_from_search(f"{bank} deutschland", engine="Yahoo")
+            base_url = get_url_from_search(f"{bank} deutschland")
             homepage = get_website(base_url)
         except NotFoundException:
             banks_df.loc[index] = [bank, "", "", "", ""]
@@ -135,6 +139,8 @@ def main():
 
         if index == 4:
             break
+
+    terminate_vpn(settings)
 
     banks_df.to_excel("banks.xlsx")
     logging.info("DONE - saved entries to excel")
