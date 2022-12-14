@@ -108,7 +108,7 @@ def log_progress(current, total, start_time):
 def main():
     logging.basicConfig(level=logging.INFO)
 
-    settings = initialize_VPN(save=1, area_input=['germany'])
+    settings = initialize_VPN(save=1, area_input=["germany"])
 
     banks = get_banks()
     banks_df = pd.DataFrame(columns=["name", "url", "email", "street", "city"])
@@ -140,7 +140,7 @@ def main():
         if index == 4:
             break
 
-    terminate_vpn(settings)
+    terminate_VPN(settings)
 
     banks_df.to_excel("banks.xlsx")
     logging.info("DONE - saved entries to excel")
