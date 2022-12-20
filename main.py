@@ -6,6 +6,10 @@ from urllib.parse import urlparse
 import pandas as pd
 import requests
 from bs4 import BeautifulSoup
+from requests import ReadTimeout
+from requests.exceptions import SSLError
+from requests.exceptions import ConnectionError
+
 from search_engine_parser.core.engines.yahoo import Search as YahooSearch
 from search_engine_parser.core.engines.google import Search as GoogleSearch
 from search_engine_parser.core.exceptions import NoResultsOrTrafficError
@@ -40,7 +44,7 @@ def perform_search(search_args):
 
 
 def get_website(url):
-    html = requests.get(url).text
+    html = requests.get(url, timeout=10).text
     soup = BeautifulSoup(html, "html.parser")
     return soup
 
@@ -55,6 +59,9 @@ def find_url_by_key(base_url, site, key):
             if url.startswith("/"):
                 url = f"https://{urlparse(base_url).netloc}{url}"
                 logging.debug(f"Converted relative URL to {url}")
+            elif not (url.startswith("https://") and url.startswith("http://")):
+                url = f"https://{urlparse(base_url).netloc}/{url}"
+                logging.debug(f"Converted relative URL to {url}")
 
             return url
     raise_not_found_exception(f"No url for {key} found on {base_url}")
@@ -65,12 +72,16 @@ def get_email(site):
     emails = re.findall(pattern=regex.email, string=str(text))
 
     logging.info(f"Found emails {emails}")
-    return emails[0]
+
+    if not emails:
+        return ""
+    else:
+        return emails[0]
 
 
 def get_address(site):
     text = site.get_text()
-    # TODO: check if re found something before group(0)
+
     street = re.search(pattern=regex.street, string=str(text))
     city = re.search(pattern=regex.city, string=str(text))
 
@@ -112,7 +123,7 @@ def log_progress(current, total, start_time):
 def main():
     logging.basicConfig(level=logging.INFO)
 
-    settings = initialize_VPN(save=1, area_input=['random regions germany 2'])
+    settings = initialize_VPN(save=1, area_input=['complete rotation'])
 
     banks = get_banks()
     banks_df = pd.DataFrame(columns=["name", "url", "email", "street", "city"])
@@ -120,14 +131,15 @@ def main():
     start_time = time.time()
 
     for index, bank in enumerate(banks):
-        if index % 5 == 0:
+        if index % 8 == 0:
             log_progress(index, banks.size, start_time)
+            banks_df.to_excel("banks.xlsx")
             switch_vpn(settings)
 
         try:
-            base_url = get_url_from_search(f"{bank} deutschland")
+            base_url = get_url_from_search(f"{bank}")
             homepage = get_website(base_url)
-        except NotFoundException:
+        except (NotFoundException, ConnectionError, ReadTimeout, SSLError):
             banks_df.loc[index] = [bank, "", "", "", ""]
             continue
 
@@ -138,11 +150,11 @@ def main():
             street, city = get_address(impressum)
 
             banks_df.loc[index] = [bank, base_url, email, street, city]
-        except NotFoundException:
+        except (NotFoundException, ConnectionError, ReadTimeout, SSLError):
             banks_df.loc[index] = [bank, base_url, "", "", ""]
 
-        if index == 16:
-            break
+        #if index == 25:
+        #    break
 
     terminate_VPN(settings)
 
