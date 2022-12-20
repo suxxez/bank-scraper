@@ -70,11 +70,15 @@ def get_email(site):
 
 def get_address(site):
     text = site.get_text()
-    street = re.search(pattern=regex.street, string=str(text)).group(0)
-    city = re.search(pattern=regex.city, string=str(text)).group(0)
+    # TODO: check if re found something before group(0)
+    street = re.search(pattern=regex.street, string=str(text))
+    city = re.search(pattern=regex.city, string=str(text))
 
     if not (street and city):
         raise_not_found_exception("Street or city not found")
+
+    street = street.group(0)
+    city = city.group(0)
 
     logging.info(f"Found address {street} {city}")
     return street, city
@@ -108,7 +112,7 @@ def log_progress(current, total, start_time):
 def main():
     logging.basicConfig(level=logging.INFO)
 
-    settings = initialize_VPN(save=1, area_input=["germany"])
+    settings = initialize_VPN(save=1, area_input=['random regions germany 2'])
 
     banks = get_banks()
     banks_df = pd.DataFrame(columns=["name", "url", "email", "street", "city"])
@@ -116,7 +120,7 @@ def main():
     start_time = time.time()
 
     for index, bank in enumerate(banks):
-        if index % 8 == 0:
+        if index % 5 == 0:
             log_progress(index, banks.size, start_time)
             switch_vpn(settings)
 
@@ -137,7 +141,7 @@ def main():
         except NotFoundException:
             banks_df.loc[index] = [bank, base_url, "", "", ""]
 
-        if index == 4:
+        if index == 16:
             break
 
     terminate_VPN(settings)
